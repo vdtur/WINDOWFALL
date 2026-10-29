@@ -1,6 +1,6 @@
 // Дочернее окно: сообщает hub своё положение, рисует свой кусок мира и шарик.
 import { createBus } from "./sync.js";
-import { clientRect, calibrateFromMouse, fitCanvas, viewportStale } from "./geometry.js?v=2";
+import { clientRect, calibrateFromMouse, fitCanvas, viewportStale, setExpectedSize } from "./geometry.js?v=3";
 import { compile, CFG } from "./physics.js";
 
 const params = new URLSearchParams(location.search);
@@ -38,6 +38,7 @@ bus.on("level", (m) => {
   if (m.id !== ID || m.s !== SESSION) return;
   def = m.def;
   meta = m.meta;
+  if (meta.expect) setExpectedSize(meta.expect.w, meta.expect.h);
   cache = null;
   const st = ROLE_STYLE[def.role] || ROLE_STYLE.TILE;
   const tileNo = def.role === "TILE" && def.n ? " " + def.n : "";
@@ -122,16 +123,23 @@ function enforce() {
   }
 }
 
-// Chrome иногда оставляет в новом попапе innerWidth/innerHeight родительского окна.
-// Изменение размера на 1px и обратно заставляет браузер прислать настоящий размер.
+// Chrome иногда отдаёт в новом попапе ложные размеры (родителя или всего экрана).
+// Явный resize окна заставляет браузер прислать настоящие; пока их нет —
+// geometry.viewportSize() берёт размер, с которым hub открыл окно.
 let lastNudge = 0, nudges = 0;
 function unstickViewport() {
-  if (!viewportStale() || nudges >= 5 || performance.now() - lastNudge < 400) return;
+  if (!viewportStale() || nudges >= 6 || performance.now() - lastNudge < 500) return;
   lastNudge = performance.now();
   nudges++;
   try {
-    window.resizeBy(1, 1);
-    setTimeout(() => { try { window.resizeBy(-1, -1); } catch (e) { /* нельзя */ } }, 60);
+    const exp = meta.expect;
+    if (exp && nudges % 2 === 1) {
+      // Внешний размер = клиентская область + рамка и адресная строка попапа (оценка).
+      window.resizeTo(exp.w + 16, exp.h + 78);
+    } else {
+      window.resizeBy(1, 1);
+      setTimeout(() => { try { window.resizeBy(-1, -1); } catch (e) { /* нельзя */ } }, 60);
+    }
   } catch (e) { /* окно открыто не скриптом */ }
 }
 window.addEventListener("resize", () => reportRect(true));

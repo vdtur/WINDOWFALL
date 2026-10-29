@@ -24,11 +24,19 @@ export function isCalibrated() {
   return isFirefox || frame !== null;
 }
 
-// Chrome в только что открытом попапе может отдавать innerWidth/innerHeight
-// окна-родителя (больше, чем само окно). Внутренний размер не может быть больше внешнего.
+// Размер клиентской области, с которым hub открыл окно (запасной вариант).
+let expected = null;
+export function setExpectedSize(w, h) {
+  expected = w > 0 && h > 0 ? { w, h } : null;
+}
+
+// Chrome иногда отдаёт в новом попапе ложные размеры: inner — от окна-родителя,
+// а то и inner = outer = размер экрана. У попапа всегда есть заголовок и адресная строка,
+// так что внутренний размер обязан быть меньше внешнего — иначе цифрам верить нельзя.
 export function viewportStale() {
+  if (isFirefox) return false;
   const ow = window.outerWidth, oh = window.outerHeight;
-  return ow > 0 && oh > 0 && (window.innerWidth > ow || window.innerHeight > oh);
+  return ow > 0 && oh > 0 && (window.innerWidth > ow || window.innerHeight >= oh);
 }
 
 // Смещение клиентской области от угла окна (для moveTo).
@@ -42,9 +50,10 @@ export function frameOffset() {
   return { dx: side, dy: Math.max(0, window.outerHeight - window.innerHeight - side) };
 }
 
-// Размер клиентской области. Если innerWidth/innerHeight устарели — считаем от внешнего размера окна.
+// Размер клиентской области. Если цифры браузера ложные — берём размер, с которым окно открывали.
 export function viewportSize() {
   if (!viewportStale()) return { w: window.innerWidth, h: window.innerHeight };
+  if (expected) return { ...expected };
   const f = frame || GUESS;
   return {
     w: Math.max(50, Math.round(window.outerWidth - 2 * f.dx)),

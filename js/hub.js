@@ -133,7 +133,10 @@ bus.on("hello", (m) => {
   bus.send({
     type: "level", id: m.id, s: session,
     def: { ...d, n: d.role === "TILE" ? n : 0 },
-    meta: { debug: DEBUG, live: !!level.live, level: levelIdx + 1 },
+    meta: {
+      debug: DEBUG, live: !!level.live, level: levelIdx + 1,
+      expect: { w: Math.round(d.w * layout.s), h: Math.round(d.h * layout.s) },
+    },
   });
   if (closedIds.delete(m.id)) updateClosed();
 });
