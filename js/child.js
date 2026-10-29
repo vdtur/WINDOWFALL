@@ -1,7 +1,9 @@
 // Дочернее окно: сообщает hub своё положение, рисует свой кусок мира и шарик.
 import { createBus } from "./sync.js";
-import { clientRect, calibrateFromMouse, fitCanvas, viewportStale, setExpectedSize } from "./geometry.js?v=3";
-import { compile, CFG } from "./physics.js";
+import {
+  clientRect, calibrateFromMouse, fitCanvas, viewportStale, viewportSize, setExpectedSize, frameOffset,
+} from "./geometry.js?v=4";
+import { compile, CFG } from "./physics.js?v=4";
 
 const params = new URLSearchParams(location.search);
 const ID = params.get("id");
@@ -73,7 +75,7 @@ bus.on("move", (m) => {
   if (m.id !== ID || m.s !== SESSION) return;
   try {
     if (m.w && m.h) {
-      window.resizeTo(m.w + window.outerWidth - window.innerWidth, m.h + window.outerHeight - window.innerHeight);
+      resizeClient(m.w, m.h);
       sizeAnchor = null;
     }
     window.moveTo(Math.round(m.x), Math.round(m.y));
@@ -94,6 +96,43 @@ window.addEventListener("keydown", (e) => {
     send({ type: "key", key: e.code });
   }
 });
+
+// Задать размер клиентской области. Запоминаем его сами: Chrome может так и не
+// сообщить странице настоящий размер окна (см. geometry.viewportStale).
+function resizeClient(w, h) {
+  const f = frameOffset();
+  setExpectedSize(w, h);
+  window.resizeTo(Math.round(w + 2 * f.dx), Math.round(h + f.dy + f.dx));
+}
+
+// ---------- свой уголок ресайза ◢ ----------
+// Растягивание за край окна игра может не увидеть, а через уголок — точно знает новый размер.
+const GRIP = 22;
+let grip = null;
+const canResize = () => def && !def.locked && !def.fixedSize && !frozen;
+function onGrip(e) {
+  const { w, h } = viewportSize();
+  return e.clientX > w - GRIP && e.clientY > h - GRIP;
+}
+canvas.addEventListener("pointerdown", (e) => {
+  if (!canResize() || !onGrip(e)) return;
+  const { w, h } = viewportSize();
+  grip = { sx: e.screenX, sy: e.screenY, w, h };
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* без захвата тоже работает, пока курсор в окне */ }
+  e.preventDefault();
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (!grip) {
+    canvas.style.cursor = canResize() && onGrip(e) ? "nwse-resize" : "";
+    return;
+  }
+  const w = Math.max(120, Math.min(screen.availWidth, grip.w + e.screenX - grip.sx));
+  const h = Math.max(90, Math.min(screen.availHeight, grip.h + e.screenY - grip.sy));
+  try { resizeClient(w, h); } catch (err) { /* окно открыто не скриптом */ }
+});
+const endGrip = () => { grip = null; };
+canvas.addEventListener("pointerup", endGrip);
+canvas.addEventListener("pointercancel", endGrip);
 
 function reportRect(force) {
   const r = clientRect();
@@ -128,14 +167,15 @@ function enforce() {
 // geometry.viewportSize() берёт размер, с которым hub открыл окно.
 let lastNudge = 0, nudges = 0;
 function unstickViewport() {
+  // Пока hub не прислал ожидаемый размер, подталкивать нечем: оценка от outer может быть размером с экран.
+  if (!def || !meta.expect) return;
   if (!viewportStale() || nudges >= 6 || performance.now() - lastNudge < 500) return;
   lastNudge = performance.now();
   nudges++;
   try {
-    const exp = meta.expect;
-    if (exp && nudges % 2 === 1) {
-      // Внешний размер = клиентская область + рамка и адресная строка попапа (оценка).
-      window.resizeTo(exp.w + 16, exp.h + 78);
+    const { w, h } = viewportSize();
+    if (nudges % 2 === 1) {
+      resizeClient(w, h);
     } else {
       window.resizeBy(1, 1);
       setTimeout(() => { try { window.resizeBy(-1, -1); } catch (e) { /* нельзя */ } }, 60);
@@ -239,6 +279,20 @@ function draw(rect) {
   ctx.strokeRect(1, 1, w - 2, h - 2);
   ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
+
+  // уголок ресайза
+  if (canResize()) {
+    ctx.strokeStyle = grip ? "#ffffff" : st.color;
+    ctx.globalAlpha = grip ? 1 : 0.75;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (const d of [6, 12, 18]) {
+      ctx.moveTo(w - 4, h - 4 - d);
+      ctx.lineTo(w - 4 - d, h - 4);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
 
   // подпись
   const tileNo = def.role === "TILE" && def.n ? " " + def.n : "";

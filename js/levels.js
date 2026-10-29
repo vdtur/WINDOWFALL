@@ -180,7 +180,7 @@ export const LEVELS = [
   {
     id: "locks",
     name: "Замки и размеры",
-    hint: "📐 МОСТ нельзя растянуть, 🔒 окна нельзя двигать. Зато РЕЗИНУ можно растянуть за край — платформа тянется вместе с окном.",
+    hint: "📐 МОСТ нельзя растянуть, 🔒 окна нельзя двигать. Зато РЕЗИНУ можно растянуть за уголок ◢ внизу справа — платформа тянется вместе с окном.",
     windows: [
       { id: "start", role: "START", x: 30, y: 60, w: 260, h: 200, locked: true,
         items: [{ type: "ramp", from: [0, 0.4], to: [1, 0.7] }] },
@@ -188,7 +188,7 @@ export const LEVELS = [
         items: [{ type: "spikes", from: [0.5, 0], to: [0.5, 1] }, { type: "spikes", from: [0.5, 1], to: [0.5, 0] }] },
       { id: "t1", role: "TILE", label: "МОСТ", x: 60, y: 420, w: 300, h: 140, fixedSize: true,
         items: [{ type: "ramp", from: [0, 0.35], to: [1, 0.55] }, { type: "coin", at: [0.5, 0.22] }] },
-      { id: "t2", role: "TILE", label: "РЕЗИНА", x: 420, y: 480, w: 160, h: 140,
+      { id: "t2", role: "TILE", label: "РЕЗИНА", x: 420, y: 480, w: 100, h: 140,
         items: [{ type: "ramp", from: [0, 0.35], to: [1, 0.55] }, { type: "coin", at: [0.5, 0.22] }] },
       { id: "exit", role: "EXIT", x: 940, y: 400, w: 260, h: 230, locked: true,
         items: floorExit(0.55) },

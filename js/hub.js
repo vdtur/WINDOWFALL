@@ -1,7 +1,7 @@
 // Главное окно: меню, открытие окон уровня, игровой цикл, физика, победа/смерть.
 import { createBus } from "./sync.js";
-import { World, CFG, starsFor } from "./physics.js";
-import { LEVELS, STAGE } from "./levels.js";
+import { World, CFG, starsFor } from "./physics.js?v=4";
+import { LEVELS, STAGE } from "./levels.js?v=4";
 import { createSound } from "./sound.js";
 
 const params = new URLSearchParams(location.search);
