@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WINDOWFALL</title>
+<meta name="description" content="Головоломка, где уровень — это настоящие окна браузера. Двигай окна, чтобы шарик докатился до финиша.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='2' y='4' width='18' height='14' rx='2' fill='none' stroke='%233dd6ff' stroke-width='2'/><rect x='12' y='14' width='18' height='14' rx='2' fill='%230d1020' stroke='%23ffd23d' stroke-width='2'/><circle cx='15' cy='12' r='4' fill='%23ffb347'/></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="hub">
+<main class="wrap">
+  <header class="top">
+    <h1 class="logo">WINDOW<span>FALL</span></h1>
+    <button id="btnSound" class="icon" title="Звук">🔊</button>
+  </header>
+
+  <section id="mobile" class="card" hidden>
+    <h2>Только для компьютера</h2>
+    <p>WINDOWFALL играется настоящими окнами браузера: их нужно таскать мышкой по экрану.
+    На телефоне так не получится — открой страницу на ПК в Chrome, Edge или Firefox.</p>
+  </section>
+
+  <section id="menu">
+    <p class="lead">Уровень — это несколько <b>настоящих окон</b> браузера. Шарик живёт в координатах экрана
+    и виден только внутри окон. Двигай и растягивай окна мышкой, чтобы он докатился от <b class="c-start">START</b>
+    до флага в <b class="c-exit">EXIT</b>. Вылетит в пустоту между окнами — сгорит.</p>
+    <ul class="rules">
+      <li>Окна можно ставить вплотную и даже <b>друг на друга</b>: в зоне перекрытия работает только верхнее окно.</li>
+      <li><b>Пробел</b> в любом окне — пуск, <b>R</b> — заново, <b>P</b> — пауза.</li>
+      <li>Нужно разрешить всплывающие окна для этого сайта — иначе браузер откроет только одно.</li>
+    </ul>
+    <h2 class="sub">Уровни</h2>
+    <div id="levels" class="levels"></div>
+  </section>
+
+  <section id="game" hidden>
+    <div class="game-head">
+      <div>
+        <h2 id="lvlTitle"></h2>
+        <span id="lvlLive" class="tag" hidden>живой уровень</span>
+      </div>
+      <button id="btnMenu" class="ghost">← Уровни</button>
+    </div>
+    <p id="lvlHint" class="hint"></p>
+
+    <div id="blocked" class="card warn" hidden>
+      <h3>Браузер заблокировал окна</h3>
+      <ol>
+        <li><b>Chrome / Edge:</b> справа в адресной строке значок заблокированного окна → «Всегда разрешать всплывающие окна» → Готово.</li>
+        <li><b>Firefox:</b> жёлтая полоска сверху → «Настройки» → «Разрешить всплывающие окна для этого сайта».</li>
+      </ol>
+      <div class="row">
+        <button id="btnRetry">↻ Повторить</button>
+        <button id="btnOneByOne" class="ghost">Открыть следующее окно</button>
+      </div>
+    </div>
+
+    <div id="closed" class="card warn" hidden>
+      <h3>Окно закрыто: <span id="closedList"></span></h3>
+      <p>Без него уровень не пройти. Игра на паузе.</p>
+      <button id="btnReopen">↻ Переоткрыть</button>
+    </div>
+
+    <div class="controls">
+      <button id="btnGo" class="primary">▶ ПУСК</button>
+      <button id="btnRestart">↺ Рестарт</button>
+      <button id="btnPause">⏸ ПАУЗА</button>
+      <button id="btnSolve" class="ghost" hidden>debug: решение</button>
+    </div>
+    <p id="status" class="status"></p>
+    <div class="stats">
+      <div><span>попытка</span><b id="attempts">0</b></div>
+      <div><span>время</span><b id="timer">0.0 с</b></div>
+      <div><span>монеты</span><b id="coins">—</b></div>
+    </div>
+    <canvas id="minimap" class="minimap" aria-label="Карта окон на экране"></canvas>
+    <p class="small">Карта экрана: где сейчас окна уровня и шарик. Это окно в уровне не участвует — его можно свернуть за остальные.</p>
+  </section>
+
+  <section id="win" class="overlay" hidden>
+    <div class="card win">
+      <h2>Финиш! 🏁</h2>
+      <div id="winStars" class="big-stars"></div>
+      <p id="winCoins" class="small"></p>
+      <div class="stats">
+        <div><span>время</span><b id="winTime"></b></div>
+        <div><span>попыток</span><b id="winTries"></b></div>
+      </div>
+      <p id="winDone" hidden>Это был последний уровень. Ты прошёл WINDOWFALL! 🎉</p>
+      <div class="row">
+        <button id="btnNext" class="primary">Следующий уровень →</button>
+        <button id="btnReplay">↺ Ещё раз</button>
+        <button id="btnShare">📋 Поделиться</button>
+        <button id="btnWinMenu" class="ghost">Уровни</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">Chrome / Edge / Firefox на ПК · <a href="?debug=1">debug</a></footer>
+</main>
+<script type="module" src="js/hub.js"></script>
+</body>
+</html>

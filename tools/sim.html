@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>WINDOWFALL — проверка уровней</title>
+<style>
+  body { background: #0b0d14; color: #cfd6f0; font: 14px ui-monospace, Consolas, monospace; padding: 20px; }
+  .ok { color: #3dff9a; } .bad { color: #ff5a6e; }
+  td { padding: 2px 12px; }
+</style>
+</head>
+<body>
+<h1>Проверка решаемости уровней</h1>
+<p>Безоконная симуляция: окна ставятся по <code>solution</code> из levels.js, шарик запускается.
+Робастность — доля успехов при случайном сдвиге подвижных окон на ±R px.</p>
+<table id="out"><tr><th>#</th><th>уровень</th><th>эталон</th><th>время</th><th>монеты</th><th>±10px</th><th>±25px</th><th>конец</th></tr></table>
+<script type="module">
+import { World, CFG } from "../js/physics.js";
+import { LEVELS } from "../js/levels.js";
+
+// Прогон одной расстановки. jitter — случайный сдвиг подвижных окон.
+// log(t, world, rects) — необязательный колбэк на каждый шаг (для трассировки из консоли).
+function run(level, jitter = 0, rnd = Math.random, log = null) {
+  const world = new World(level);
+  const sol = level.solution || {};
+  const rects = {};
+  for (const d of level.windows) {
+    const s = sol[d.id];
+    const j = s && jitter ? () => (rnd() * 2 - 1) * jitter : () => 0;
+    rects[d.id] = s
+      ? { x: s[0] + j(), y: s[1] + j(), w: s[2] || d.w, h: s[3] || d.h }
+      : { x: d.x, y: d.y, w: d.w, h: d.h };
+  }
+  // z: окна без решения — снизу в порядке описания, окна из решения — сверху.
+  let z = 0;
+  for (const d of level.windows) if (!sol[d.id]) world.setZ(d.id, z++);
+  for (const id of Object.keys(sol)) world.setZ(id, z++);
+  for (const [id, r] of Object.entries(rects)) world.setRect(id, r);
+  world.step(CFG.step);
+  world.launch();
+  const script = (level.script || []).map((s) => ({ ...s, from: null }));
+  let t = 0, last = null;
+  while (t < 15) {
+    for (const s of script) {
+      if (t < s.at || t > s.at + s.dur + CFG.step) continue;
+      if (!s.from) s.from = { ...rects[s.id] };
+      const k = Math.min(1, (t - s.at) / s.dur);
+      rects[s.id].x = s.from.x + (s.to[0] - s.from.x) * k;
+      rects[s.id].y = s.from.y + (s.to[1] - s.from.y) * k;
+      world.setRect(s.id, { ...rects[s.id], x: Math.round(rects[s.id].x), y: Math.round(rects[s.id].y) });
+    }
+    const ev = world.step(CFG.step);
+    t += CFG.step;
+    if (log) log(t, world, rects);
+    for (const e of ev) {
+      if (e.type === "win") return { win: true, time: e.time, coins: e.coins, total: world.coinsTotal() };
+      if (e.type === "death") return { win: false, reason: e.reason, at: e.id, t, ball: { ...world.ball } };
+    }
+  }
+  return { win: false, reason: "timeout", ball: { ...world.ball } };
+}
+
+function rate(level, jitter, n = 60) {
+  let ok = 0;
+  for (let i = 0; i < n; i++) if (run(level, jitter).win) ok++;
+  return Math.round((ok / n) * 100) + "%";
+}
+
+const results = [];
+const out = document.getElementById("out");
+LEVELS.forEach((lv, i) => {
+  const r = run(lv);
+  const row = {
+    n: i + 1, name: lv.name, win: r.win, time: r.time, coins: r.win ? `${r.coins}/${r.total}` : "",
+    j10: rate(lv, 10), j25: rate(lv, 25),
+    end: r.win ? "" : `${r.reason} @${r.at || ""} t=${(r.t || 0).toFixed(2)} ball=${Math.round(r.ball.x)},${Math.round(r.ball.y)}`,
+  };
+  results.push(row);
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${row.n}</td><td>${row.name}</td><td class="${row.win ? "ok" : "bad"}">${row.win ? "✓" : "✗"}</td>` +
+    `<td>${row.time ? row.time.toFixed(2) + " с" : ""}</td><td>${row.coins}</td><td>${row.j10}</td><td>${row.j25}</td><td>${row.end}</td>`;
+  out.appendChild(tr);
+});
+window.simResults = results;
+window.simRun = run;
+// Трассировка из консоли: simTrace(LEVELS[0], 0.1) → строка «t: x,y v vx,vy».
+window.simTrace = (level, every = 0.1) => {
+  const pts = [];
+  let next = 0;
+  const r = run(level, 0, Math.random, (t, w) => {
+    if (t < next) return;
+    next += every;
+    const b = w.ball;
+    pts.push(`${t.toFixed(2)}: ${Math.round(b.x)},${Math.round(b.y)} v${Math.round(b.vx)},${Math.round(b.vy)}`);
+  });
+  return pts.join(" | ") + " → " + JSON.stringify(r);
+};
+window.LEVELS = LEVELS;
+</script>
+</body>
+</html>
