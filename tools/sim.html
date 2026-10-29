@@ -15,13 +15,14 @@
 Робастность — доля успехов при случайном сдвиге подвижных окон на ±R px.</p>
 <table id="out"><tr><th>#</th><th>уровень</th><th>эталон</th><th>время</th><th>монеты</th><th>±10px</th><th>±25px</th><th>конец</th></tr></table>
 <script type="module">
-import { World, CFG } from "../js/physics.js";
-import { LEVELS } from "../js/levels.js";
+// Свежие модули при каждой загрузке страницы, в обход кэша.
+const v = Date.now();
+const { World, CFG } = await import(`../js/physics.js?${v}`);
+const { LEVELS, STAGE } = await import(`../js/levels.js?${v}`);
 
 // Прогон одной расстановки. jitter — случайный сдвиг подвижных окон.
 // log(t, world, rects) — необязательный колбэк на каждый шаг (для трассировки из консоли).
 function run(level, jitter = 0, rnd = Math.random, log = null) {
-  const world = new World(level);
   const sol = level.solution || {};
   const rects = {};
   for (const d of level.windows) {
@@ -32,15 +33,20 @@ function run(level, jitter = 0, rnd = Math.random, log = null) {
       : { x: d.x, y: d.y, w: d.w, h: d.h };
   }
   // z: окна без решения — снизу в порядке описания, окна из решения — сверху.
-  let z = 0;
-  for (const d of level.windows) if (!sol[d.id]) world.setZ(d.id, z++);
-  for (const id of Object.keys(sol)) world.setZ(id, z++);
+  const order = [...level.windows.filter((d) => !sol[d.id]).map((d) => d.id), ...Object.keys(sol)];
+  return simulate(level, rects, order, level.script, log);
+}
+
+// rects — клиентские области окон, order — id окон снизу вверх.
+function simulate(level, rects, order, scriptDef = null, log = null, maxT = 15) {
+  const world = new World(level);
+  order.forEach((id, z) => world.setZ(id, z));
   for (const [id, r] of Object.entries(rects)) world.setRect(id, r);
   world.step(CFG.step);
   world.launch();
-  const script = (level.script || []).map((s) => ({ ...s, from: null }));
-  let t = 0, last = null;
-  while (t < 15) {
+  const script = (scriptDef || []).map((s) => ({ ...s, from: null }));
+  let t = 0;
+  while (t < maxT) {
     for (const s of script) {
       if (t < s.at || t > s.at + s.dur + CFG.step) continue;
       if (!s.from) s.from = { ...rects[s.id] };
@@ -58,6 +64,42 @@ function run(level, jitter = 0, rnd = Math.random, log = null) {
     }
   }
   return { win: false, reason: "timeout", ball: { ...world.ball } };
+}
+
+// Поиск обходов: убираем одно подвижное окно с экрана (without) и случайно расставляем
+// остальные подвижные окна. Если уровень всё равно проходится — это окно можно не использовать.
+// Без without — базовая линия: насколько часто случайный поиск находит хоть какое-то решение.
+function audit(level, without = null, n = 4000, rnd = Math.random) {
+  const movable = level.windows.filter((d) => !d.locked);
+  const locked = level.windows.filter((d) => d.locked);
+  const found = [];
+  for (let i = 0; i < n; i++) {
+    const rects = {};
+    for (const d of locked) rects[d.id] = { x: d.x, y: d.y, w: d.w, h: d.h };
+    for (const d of movable) {
+      if (d.id === without) { rects[d.id] = { x: -5000, y: -5000, w: d.w, h: d.h }; continue; }
+      const [maxW, maxH] = d.maxSize || [520, d.h + 120];
+      const w = d.resizable ? Math.round(d.w + rnd() * (maxW - d.w)) : d.w;
+      const h = d.resizable ? Math.round(d.h + rnd() * (maxH - d.h)) : d.h;
+      rects[d.id] = {
+        x: Math.round(-60 + rnd() * (STAGE.w - w + 120)),
+        y: Math.round(-60 + rnd() * (STAGE.h - h + 120)),
+        w, h,
+      };
+    }
+    const top = movable.map((d) => d.id).sort(() => rnd() - 0.5);
+    const order = [...locked.map((d) => d.id), ...top];
+    // Скриптовые рывки окон (уровень «Подброс») случайный поиск не воспроизводит.
+    const r = simulate(level, rects, order, null, null, 10);
+    if (r.win) found.push({ rects, order, coins: r.coins });
+  }
+  return found;
+}
+
+function auditLevel(level, n = 4000) {
+  const res = { base: audit(level, null, n).length };
+  for (const d of level.windows) if (!d.locked) res["без " + d.id] = audit(level, d.id, n).length;
+  return res;
 }
 
 function rate(level, jitter, n = 60) {
@@ -83,6 +125,10 @@ LEVELS.forEach((lv, i) => {
 });
 window.simResults = results;
 window.simRun = run;
+window.simAudit = audit;
+// Из консоли: simAuditLevel(LEVELS[9]) → {base: N, "без t2": M, ...}; M > 0 — окно t2 можно обойти.
+window.simAuditLevel = auditLevel;
+window.simulate = simulate;
 // Трассировка из консоли: simTrace(LEVELS[0], 0.1) → строка «t: x,y v vx,vy».
 window.simTrace = (level, every = 0.1) => {
   const pts = [];

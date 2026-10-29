@@ -4,7 +4,8 @@
 // и уменьшается, если экран меньше); w, h — размер клиентской области.
 // Содержимое (items) — в долях клиентской области: [0..1, 0..1].
 //
-// role: START | EXIT | TILE · locked — нельзя двигать · fixedSize — нельзя ресайзить
+// role: START | EXIT | TILE · locked — нельзя двигать · resizable — можно растягивать за уголок ◢
+// (остальные окна держат свой размер).
 // live — окна можно двигать во время полёта шарика (иначе они замерзают).
 // solution — эталонная расстановка {id: [x, y, w?, h?]} для ?debug=1 и tools/sim.html;
 // порядок ключей = порядок окон по высоте (последнее — сверху).
@@ -51,14 +52,14 @@ export const LEVELS = [
     windows: [
       { id: "start", role: "START", x: 30, y: 20, w: 280, h: 200, locked: true, spawn: [0.12, 0.12],
         items: [{ type: "ramp", from: [0, 0.35], to: [1, 0.6] }] },
-      { id: "t1", role: "TILE", x: 360, y: 360, w: 300, h: 300,
+      { id: "t1", role: "TILE", x: 360, y: 360, w: 240, h: 300,
         items: [{ type: "ramp", from: [0, 0.55], to: [1, 0.85] }, { type: "coin", at: [0.5, 0.6] }] },
-      { id: "t2", role: "TILE", x: 600, y: 20, w: 300, h: 300,
+      { id: "t2", role: "TILE", x: 600, y: 20, w: 240, h: 300,
         items: [{ type: "ramp", from: [0, 0.55], to: [1, 0.85] }, { type: "coin", at: [0.5, 0.6] }] },
-      { id: "exit", role: "EXIT", x: 900, y: 420, w: 300, h: 220, locked: true,
+      { id: "exit", role: "EXIT", x: 940, y: 420, w: 300, h: 220, locked: true,
         items: floorExit(0.55) },
     ],
-    solution: { t1: [280, 60], t2: [560, 180] },
+    solution: { t2: [248, 116], t1: [660, 336] },
   },
   {
     id: "trampoline",
@@ -172,7 +173,7 @@ export const LEVELS = [
           { type: "spikes", from: [0, 0.96], to: [1, 0.96] },
           { type: "coin", at: [0.5, 0.2] },
         ] },
-      { id: "exit", role: "EXIT", x: 900, y: 200, w: 300, h: 240, locked: true,
+      { id: "exit", role: "EXIT", x: 940, y: 200, w: 300, h: 240, locked: true,
         items: floorExit(0.6) },
     ],
     solution: { t1: [260, 320], t2: [550, 300] },
@@ -180,15 +181,15 @@ export const LEVELS = [
   {
     id: "locks",
     name: "Замки и размеры",
-    hint: "📐 МОСТ нельзя растянуть, 🔒 окна нельзя двигать. Зато РЕЗИНУ можно растянуть за уголок ◢ внизу справа — платформа тянется вместе с окном.",
+    hint: "🔒 окна нельзя двигать, а МОСТ слишком короткий. Зато РЕЗИНУ можно растянуть за уголок ◢ внизу справа — платформа тянется вместе с окном.",
     windows: [
       { id: "start", role: "START", x: 30, y: 60, w: 260, h: 200, locked: true,
         items: [{ type: "ramp", from: [0, 0.4], to: [1, 0.7] }] },
-      { id: "t3", role: "TILE", label: "СТЕНА", x: 540, y: 0, w: 140, h: 360, locked: true, fixedSize: true,
+      { id: "t3", role: "TILE", label: "СТЕНА", x: 540, y: 0, w: 140, h: 360, locked: true,
         items: [{ type: "spikes", from: [0.5, 0], to: [0.5, 1] }, { type: "spikes", from: [0.5, 1], to: [0.5, 0] }] },
-      { id: "t1", role: "TILE", label: "МОСТ", x: 60, y: 420, w: 300, h: 140, fixedSize: true,
+      { id: "t1", role: "TILE", label: "МОСТ", x: 60, y: 420, w: 300, h: 140,
         items: [{ type: "ramp", from: [0, 0.35], to: [1, 0.55] }, { type: "coin", at: [0.5, 0.22] }] },
-      { id: "t2", role: "TILE", label: "РЕЗИНА", x: 420, y: 480, w: 100, h: 140,
+      { id: "t2", role: "TILE", label: "РЕЗИНА", x: 420, y: 480, w: 100, h: 140, resizable: true, maxSize: [340, 240],
         items: [{ type: "ramp", from: [0, 0.35], to: [1, 0.55] }, { type: "coin", at: [0.5, 0.22] }] },
       { id: "exit", role: "EXIT", x: 940, y: 400, w: 260, h: 230, locked: true,
         items: floorExit(0.55) },
@@ -208,11 +209,11 @@ export const LEVELS = [
           { type: "wall", from: [0.97, 0.2], to: [0.97, 1] },
           { type: "platform", from: [0.68, 0.98], to: [0.97, 0.98] },
         ] },
-      { id: "t1", role: "TILE", label: "ПОРТАЛ", x: 40, y: 440, w: 260, h: 180,
+      { id: "t1", role: "TILE", label: "ПОРТАЛ", x: 40, y: 280, w: 260, h: 180, locked: true,
         items: [
           { type: "portal", at: [0.14, 0.28], pair: "a" },
           { type: "ramp", from: [0, 0.55], to: [1, 0.8] },
-          { type: "coin", at: [0.6, 0.52] },
+          { type: "coin", at: [0.6, 0.6] },
         ] },
       { id: "t3", role: "TILE", label: "КОЛЮЧКИ", x: 300, y: 430, w: 420, h: 180, locked: true,
         items: [
@@ -231,6 +232,6 @@ export const LEVELS = [
           { type: "flag", at: [0.72, 0.8] },
         ] },
     ],
-    solution: { t1: [40, 280], t4: [400, 433], t2: [660, 300] },
+    solution: { t4: [400, 433], t2: [660, 300] },
   },
 ];

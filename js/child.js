@@ -2,8 +2,8 @@
 import { createBus } from "./sync.js";
 import {
   clientRect, calibrateFromMouse, fitCanvas, viewportStale, viewportSize, setExpectedSize, frameOffset,
-} from "./geometry.js?v=4";
-import { compile, CFG } from "./physics.js?v=4";
+} from "./geometry.js?v=5";
+import { compile, CFG } from "./physics.js?v=5";
 
 const params = new URLSearchParams(location.search);
 const ID = params.get("id");
@@ -44,7 +44,7 @@ bus.on("level", (m) => {
   cache = null;
   const st = ROLE_STYLE[def.role] || ROLE_STYLE.TILE;
   const tileNo = def.role === "TILE" && def.n ? " " + def.n : "";
-  const lock = def.locked ? " 🔒" : def.fixedSize ? " 📐" : "";
+  const lock = def.locked ? " 🔒" : def.resizable ? " ◢" : "";
   document.title = `${st.icon} ${def.label || st.label + tileNo}${lock}`;
 });
 bus.on("state", (m) => {
@@ -109,7 +109,7 @@ function resizeClient(w, h) {
 // Растягивание за край окна игра может не увидеть, а через уголок — точно знает новый размер.
 const GRIP = 22;
 let grip = null;
-const canResize = () => def && !def.locked && !def.fixedSize && !frozen;
+const canResize = () => def && def.resizable && !def.locked && !frozen;
 function onGrip(e) {
   const { w, h } = viewportSize();
   return e.clientX > w - GRIP && e.clientY > h - GRIP;
@@ -126,8 +126,9 @@ canvas.addEventListener("pointermove", (e) => {
     canvas.style.cursor = canResize() && onGrip(e) ? "nwse-resize" : "";
     return;
   }
-  const w = Math.max(120, Math.min(screen.availWidth, grip.w + e.screenX - grip.sx));
-  const h = Math.max(90, Math.min(screen.availHeight, grip.h + e.screenY - grip.sy));
+  const [maxW, maxH] = def.maxSize || [screen.availWidth, screen.availHeight];
+  const w = Math.max(120, Math.min(maxW, grip.w + e.screenX - grip.sx));
+  const h = Math.max(90, Math.min(maxH, grip.h + e.screenY - grip.sy));
   try { resizeClient(w, h); } catch (err) { /* окно открыто не скриптом */ }
 });
 const endGrip = () => { grip = null; };
@@ -153,7 +154,9 @@ function enforce() {
   if (anchor && (Math.abs(window.screenX - anchor.x) > 1 || Math.abs(window.screenY - anchor.y) > 1)) {
     try { window.moveTo(anchor.x, anchor.y); } catch (e) { /* нельзя — и ладно */ }
   }
-  if (def.fixedSize) {
+  // Размер менять нельзя, если уровень явно не разрешил (resizable): иначе растянутое
+  // окно масштабирует своё содержимое и открывает обходные пути.
+  if (!def.resizable) {
     // Сравниваем внешний размер: innerWidth сразу после открытия может врать.
     if (!sizeAnchor) sizeAnchor = { ow: window.outerWidth, oh: window.outerHeight };
     else if (window.outerWidth !== sizeAnchor.ow || window.outerHeight !== sizeAnchor.oh) {
@@ -296,7 +299,7 @@ function draw(rect) {
 
   // подпись
   const tileNo = def.role === "TILE" && def.n ? " " + def.n : "";
-  label(`${def.label || st.label + tileNo}${def.locked ? "  🔒" : ""}${def.fixedSize ? "  📐" : ""}`, 10, 18, st.color, "left");
+  label(`${def.label || st.label + tileNo}${def.locked ? "  🔒" : ""}${def.resizable ? "  ◢" : ""}`, 10, 18, st.color, "left");
   if (frozen && !def.locked) label("❄ заморожено до приземления", w - 10, 18, "#7f8bb3", "right");
   if (def.role === "START" && state && state.status === "setup") {
     label(state.paused ? "ПАУЗА" : "ПРОБЕЛ — пуск", w / 2, h - 12, "rgba(255,255,255,0.55)", "center");
