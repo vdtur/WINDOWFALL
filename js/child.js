@@ -1,6 +1,6 @@
 // Дочернее окно: сообщает hub своё положение, рисует свой кусок мира и шарик.
 import { createBus } from "./sync.js";
-import { clientRect, calibrateFromMouse, fitCanvas } from "./geometry.js";
+import { clientRect, calibrateFromMouse, fitCanvas, viewportStale } from "./geometry.js?v=2";
 import { compile, CFG } from "./physics.js";
 
 const params = new URLSearchParams(location.search);
@@ -114,15 +114,31 @@ function enforce() {
     try { window.moveTo(anchor.x, anchor.y); } catch (e) { /* нельзя — и ладно */ }
   }
   if (def.fixedSize) {
-    if (!sizeAnchor) sizeAnchor = { iw: window.innerWidth, ih: window.innerHeight, ow: window.outerWidth, oh: window.outerHeight };
-    else if (window.innerWidth !== sizeAnchor.iw || window.innerHeight !== sizeAnchor.ih) {
+    // Сравниваем внешний размер: innerWidth сразу после открытия может врать.
+    if (!sizeAnchor) sizeAnchor = { ow: window.outerWidth, oh: window.outerHeight };
+    else if (window.outerWidth !== sizeAnchor.ow || window.outerHeight !== sizeAnchor.oh) {
       try { window.resizeTo(sizeAnchor.ow, sizeAnchor.oh); } catch (e) { /* нельзя */ }
     }
   }
 }
 
+// Chrome иногда оставляет в новом попапе innerWidth/innerHeight родительского окна.
+// Изменение размера на 1px и обратно заставляет браузер прислать настоящий размер.
+let lastNudge = 0, nudges = 0;
+function unstickViewport() {
+  if (!viewportStale() || nudges >= 5 || performance.now() - lastNudge < 400) return;
+  lastNudge = performance.now();
+  nudges++;
+  try {
+    window.resizeBy(1, 1);
+    setTimeout(() => { try { window.resizeBy(-1, -1); } catch (e) { /* нельзя */ } }, 60);
+  } catch (e) { /* окно открыто не скриптом */ }
+}
+window.addEventListener("resize", () => reportRect(true));
+
 // ---------- рендер ----------
 function frame() {
+  unstickViewport();
   const rect = reportRect(false);
   enforce();
   draw(rect);
@@ -421,6 +437,8 @@ function drawDebug(rect, ball) {
     ctx.stroke();
   }
   label(`rect ${rect.x},${rect.y} ${rect.w}×${rect.h}`, 10, 34, "rgba(0,255,0,0.7)", "left");
+  label(`inner ${window.innerWidth}×${window.innerHeight} outer ${window.outerWidth}×${window.outerHeight}` +
+    ` dpr ${window.devicePixelRatio}${viewportStale() ? " STALE" : ""}`, 10, 50, "rgba(0,255,0,0.7)", "left");
 }
 
 // Детерминированное конфетти: все окна считают одни и те же частицы

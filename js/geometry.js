@@ -7,6 +7,10 @@ const isFirefox = typeof window !== "undefined" && "mozInnerScreenX" in window;
 // снятое по первому событию мыши. null — пока не откалибровано.
 let frame = null;
 
+// Грубая оценка рамки попапа Chrome на Windows (заголовок + адресная строка),
+// пока нет калибровки мышью, а innerWidth/innerHeight врут.
+const GUESS = { dx: 8, dy: 70 };
+
 export function calibrateFromMouse(e) {
   if (isFirefox) return;
   const dx = e.screenX - e.clientX - window.screenX;
@@ -20,14 +24,32 @@ export function isCalibrated() {
   return isFirefox || frame !== null;
 }
 
+// Chrome в только что открытом попапе может отдавать innerWidth/innerHeight
+// окна-родителя (больше, чем само окно). Внутренний размер не может быть больше внешнего.
+export function viewportStale() {
+  const ow = window.outerWidth, oh = window.outerHeight;
+  return ow > 0 && oh > 0 && (window.innerWidth > ow || window.innerHeight > oh);
+}
+
 // Смещение клиентской области от угла окна (для moveTo).
 export function frameOffset() {
   if (frame) return frame;
   if (isFirefox) {
     return { dx: window.mozInnerScreenX - window.screenX, dy: window.mozInnerScreenY - window.screenY };
   }
+  if (viewportStale()) return GUESS;
   const side = Math.max(0, (window.outerWidth - window.innerWidth) / 2);
   return { dx: side, dy: Math.max(0, window.outerHeight - window.innerHeight - side) };
+}
+
+// Размер клиентской области. Если innerWidth/innerHeight устарели — считаем от внешнего размера окна.
+export function viewportSize() {
+  if (!viewportStale()) return { w: window.innerWidth, h: window.innerHeight };
+  const f = frame || GUESS;
+  return {
+    w: Math.max(50, Math.round(window.outerWidth - 2 * f.dx)),
+    h: Math.max(50, Math.round(window.outerHeight - f.dy - f.dx)),
+  };
 }
 
 // Прямоугольник клиентской области окна в экранных координатах.
@@ -41,13 +63,14 @@ export function clientRect() {
     x = window.screenX + f.dx;
     y = window.screenY + f.dy;
   }
-  return { x: Math.round(x), y: Math.round(y), w: window.innerWidth, h: window.innerHeight };
+  const { w, h } = viewportSize();
+  return { x: Math.round(x), y: Math.round(y), w, h };
 }
 
 // Подогнать canvas под окно с учётом devicePixelRatio (масштаб ОС 125/150%).
 export function fitCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  const w = window.innerWidth, h = window.innerHeight;
+  const { w, h } = viewportSize();
   const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
   if (canvas.width !== bw || canvas.height !== bh) {
     canvas.width = bw;
